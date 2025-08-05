@@ -22,7 +22,7 @@ export default class Scene extends Phaser.Scene {
   create() {
     // player
     this.player = this.physics.add
-      .image(50, 50, "player")
+      .image(50, 100, "player")
       .setScale(0.23)
       .setOrigin(0, 0)
       .setCollideWorldBounds(true);
@@ -43,7 +43,7 @@ export default class Scene extends Phaser.Scene {
     this.enemies = this.physics.add.group();
 
     // timer
-    this.startTime = 0;
+    this.startTime = this.time.now;
     this.timerText = this.add
       .text(this.scale.width - 100, 20, "00:00:00", {
         fontSize: "16px",
@@ -62,11 +62,11 @@ export default class Scene extends Phaser.Scene {
             Phaser.Math.Between(50, this.scale.height - 50),
             "enemy"
           )
-          .setScale(0.08);
+          .setScale(0.1);
         enemy.setVelocityX(-100);
-        // set the enemy collision box
-        enemy.body.setSize(enemy.width * 0.6, enemy.height * 0.6);
-        enemy.body.setOffset(enemy.width * 0.2, enemy.height * 0.2);
+        // 충돌 박스를 작게 설정
+        enemy.body.setSize(enemy.width * 0.6, enemy.height * 0.6); // 너비, 높이 60%로 줄이기
+        enemy.body.setOffset(enemy.width * 0.2, enemy.height * 0.2); // 위치도 중앙으로 정렬
       },
     });
 
@@ -85,22 +85,6 @@ export default class Scene extends Phaser.Scene {
 
   // update player moving and other states
   update(time: number) {
-    // set the startTime
-    if (this.startTime === 0) {
-      this.startTime = time;
-    }
-
-    // calculate the time
-    const elapsed = Math.floor(time - this.startTime / 1000);
-
-    // convert to hour, minutes, seconds
-    const hours = String(Math.floor(elapsed / 3600)).padStart(2, "0");
-    const minutes = String(Math.floor((elapsed % 3600) / 60)).padStart(2, "0");
-    const seconds = String(elapsed % 60).padStart(2, "0");
-
-    // update timerText
-    this.timerText.setText(`${hours}:${minutes}:${seconds}`);
-
     if (!this.player || !this.cursors || !this.spaceKey) return;
 
     // move player
@@ -118,12 +102,11 @@ export default class Scene extends Phaser.Scene {
       this.player.setVelocityY(200);
     }
 
-    // fire the laser when space key is pressed
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
       const laser = this.lasers
         .create(
-          this.player.x + this.player.width * this.player.scaleX,
-          this.player.y + this.player.height * 0.5 * this.player.scaleY,
+          this.player.x + this.player.width * this.player.scaleX, // 플레이어 앞부분
+          this.player.y + this.player.height * 0.5 * this.player.scaleY, // 수직 중앙
           "laser"
         )
         .setScale(0.1);
@@ -132,9 +115,11 @@ export default class Scene extends Phaser.Scene {
       laser.setCollideWorldBounds(true);
       laser.body.onWorldBounds = true;
 
+      // 충돌 범위를 길고 얇게 설정
       laser.body.setSize(laser.width * 0.8, laser.height * 0.4);
-      laser.body.setOffset(laser.width * 0.3, laser.height * 0.1);
+      laser.body.setOffset(laser.width * 0.1, laser.height * 0.3); // 세로 중앙 정렬
 
+      // 레이저가 화면 밖 나가면 제거
       laser.body.world.on("worldbounds", (body: Phaser.Physics.Arcade.Body) => {
         if (body.gameObject === laser) {
           laser.destroy();
