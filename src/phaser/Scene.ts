@@ -1,4 +1,4 @@
-import Phaser from "phaser";
+import Phaser, { Physics } from "phaser";
 
 export default class Scene extends Phaser.Scene {
   player!: Phaser.Physics.Arcade.Image;
@@ -8,6 +8,8 @@ export default class Scene extends Phaser.Scene {
   enemies!: Phaser.Physics.Arcade.Group;
   timerText!: Phaser.GameObjects.Text;
   startTime!: number;
+  isGameOver!: false;
+  playerEnemyCollider?: Phaser.Physics.Arcade.Collider;
 
   constructor() {
     super({ key: "Scene" });
@@ -17,6 +19,37 @@ export default class Scene extends Phaser.Scene {
     this.load.image("player", "/player.png");
     this.load.image("laser", "/laser.png");
     this.load.image("enemy", "/enemy.png");
+    this.load.image("explosion", "/explosion.png");
+  }
+
+  // create a function for explosion effect
+  createExplosion(x: number, y: number) {
+    const explosion = this.add.image(x, y, "explosion").setScale(0.13);
+    this.time.delayedCall(300, () => {
+      explosion.destroy();
+    });
+  }
+
+  // player death function with enemy hit
+  onPlayerHit(
+    playerGO: Phaser.GameObjects.GameObject,
+    enemyGO: Phaser.GameObjects.GameObject
+  ) {
+    const p = playerGO as Phaser.Physics.Arcade.Image;
+    const e = enemyGO as Phaser.Physics.Arcade.Image;
+
+    this.createExplosion(p.x, p.y);
+    p.destroy();
+
+    // After player death, switch to Game Over Scene
+    this.time.delayedCall(300, () => {
+      // stop the current scene
+      const elapsedSeconds = Math.floor(
+        (this.time.now - this.startTime) / 1000
+      );
+      this.scene.pause("Scene");
+      this.scene.launch("GameOverScene", { elapsed: elapsedSeconds });
+    });
   }
 
   create() {
@@ -67,6 +100,15 @@ export default class Scene extends Phaser.Scene {
         // set the enemy collision box
         enemy.body.setSize(enemy.width * 0.6, enemy.height * 0.6);
         enemy.body.setOffset(enemy.width * 0.2, enemy.height * 0.2);
+
+        enemy.body.world.on(
+          "worldbounds",
+          (body: Phaser.Physics.Arcade.Body) => {
+            if (body.gameObject === enemy) {
+              enemy.destroy();
+            }
+          }
+        );
       },
     });
 
@@ -75,9 +117,20 @@ export default class Scene extends Phaser.Scene {
       this.lasers,
       this.enemies,
       (laser, enemy) => {
+        const this_enemy = enemy as Phaser.Physics.Arcade.Image;
+        this.createExplosion(this_enemy.x, this_enemy.y);
         laser.destroy();
         enemy.destroy();
       },
+      undefined,
+      this
+    );
+
+    // player collision with enemy
+    this.playerEnemyCollider = this.physics.add.overlap(
+      this.player,
+      this.enemies,
+      this.onPlayerHit as any,
       undefined,
       this
     );
@@ -101,7 +154,10 @@ export default class Scene extends Phaser.Scene {
     // update timerText
     this.timerText.setText(`${hours}:${minutes}:${seconds}`);
 
-    if (!this.player || !this.cursors || !this.spaceKey) return;
+    if (this.isGameOver) return;
+
+    if (!this.player || !this.player.body || !this.cursors || !this.spaceKey)
+      return;
 
     // move player
     this.player.setVelocity(0);
@@ -119,7 +175,10 @@ export default class Scene extends Phaser.Scene {
     }
 
     // fire the laser when space key is pressed
-    if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
+    if (
+      Phaser.Input.Keyboard.JustDown(this.spaceKey) &&
+      this.lasers.countActive(true) < 3
+    ) {
       const laser = this.lasers
         .create(
           this.player.x + this.player.width * this.player.scaleX,
@@ -127,7 +186,7 @@ export default class Scene extends Phaser.Scene {
           "laser"
         )
         .setScale(0.1);
-
+      console.log(this.lasers.countActive(true));
       laser.setVelocityX(400);
       laser.setCollideWorldBounds(true);
       laser.body.onWorldBounds = true;

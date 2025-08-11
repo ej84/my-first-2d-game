@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import Scene from "@/phaser/Scene";
+import GameOverScene from "@/phaser/GameOverScene";
 
 export default function Canvas() {
   const gameRef = useRef<Phaser.Game | null>(null);
@@ -22,7 +23,7 @@ export default function Canvas() {
           debug: false,
         },
       },
-      scene: [Scene],
+      scene: [Scene, GameOverScene],
       parent: "game-container",
     };
 
@@ -35,9 +36,9 @@ export default function Canvas() {
     window.addEventListener("resize", handleResize);
 
     return () => {
+      window.removeEventListener("resize", handleResize);
       gameRef.current?.destroy(true);
       gameRef.current = null;
-      window.removeEventListener("resize", handleResize);
     };
   }, []);
 
